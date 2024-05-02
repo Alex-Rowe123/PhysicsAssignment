@@ -4,6 +4,7 @@
 
 #include "phy.h"
 #include "glm/glm.hpp"
+#include "CollisionPlane.h"
 #include <vector>
 #include <algorithm>
 
@@ -37,6 +38,8 @@ public:
 	void computeCollisionRes(float deltaTs);
 	void spheresCollisionResponse(DynamicObject* _other);
 	void applyImpulseResponses(DynamicObject* objA, DynamicObject* objB);
+	void planeCollisionResponse(CollisionPlane _plane, float deltaTs);
+	glm::vec3 getEulerAngles(glm::mat3 R);
 
 	/** Numerical integration: Euler's method
 	**/
@@ -62,6 +65,8 @@ public:
 	const glm::vec3 getPosition() const { return _position;}
     const float getMass() const { return _mass; }
 	const float getBoundingRadius() const { return _bRadius; }
+	const float getElasticity() const { return _elasticity; }
+	void setElasticity(float elasticity) { _elasticity = elasticity; }
 	
 	void addTorque(const glm::vec3 torque) {_torque += torque;}
 	void clearTorque() {_torque = glm::vec3(0.0f,0.0f,0.0f);}
@@ -69,7 +74,6 @@ public:
 	void computeInverseInertiaTensor();
 	glm::vec3 computeTorque(glm::vec3 torque_arm, glm::vec3 contact_force);
 	glm::vec3 frictionForce(glm::vec3 relative_velocity, glm::vec3 contact_normal, glm::vec3 force_normal, float mu);
-	glm::vec3 getEulerAngles(glm::mat3 R);
 
 	static std::vector<DynamicObject*> object_list;
 
@@ -84,6 +88,7 @@ private:
 	glm::vec3 _position;
 	glm::vec3 _previous_position;
 	float _mass;
+	float _elasticity;
 	/** The radius of a bounding sphere of the object
 	*/
 	float _bRadius;

@@ -1,5 +1,6 @@
 #include "DynamicObject.h"
 #include "Utility.h"
+//#include "CollisionPlane.h"
 
 /*! \brief Brief description.
 *  Physics dynamic object class is derived from the GameObject class, as a one type/class of game objects
@@ -119,6 +120,7 @@ void DynamicObject::update(float deltaTs)
 	
 	// Step 1: Clear all the forces act on the object
 	clearForces();
+	clearTorque();
 	// Step 2: Compute each of forces acts on the object
 	// Only gravitational force at the moment
 	glm::vec3 force = _mass * _acceleration;
@@ -129,11 +131,8 @@ void DynamicObject::update(float deltaTs)
 	// note: this collision detection is a temp fix for now
 	// We will show how to detect collisions in the following lectures
 
-	//computeCollisionRes(deltaTs);
-	for (DynamicObject* obj : object_list)
-	{
-		if (obj != this) spheresCollisionResponse(obj);
-	}
+	computeCollisionRes(deltaTs);
+	for (DynamicObject* obj : object_list) if (obj != this) spheresCollisionResponse(obj);
 
 	// Step 4:  Integration
 	euler(deltaTs); 
@@ -142,21 +141,35 @@ void DynamicObject::update(float deltaTs)
 	//verlet(deltaTs);
 	
 	setPosition(_position.x, _position.y, _position.z);
+	glm::vec3 euler_angles = getEulerAngles(_R);
+	float degree = 180.0f / 3.141596f;
+	setRotation(euler_angles.x* degree, euler_angles.y*degree, euler_angles.z* degree);
 	
 }
 
 
 void DynamicObject::computeCollisionRes(float deltaTs)
 {
-
+	glm::vec3 n = glm::vec3(0.0f,1.0f,0.0f);
+	glm::vec3 p = _position;
+	glm::vec3 q = glm::vec3(0.0f,0.0f,0.0f);
 	float r = getBoundingRadius();
+	float elasticity = getElasticity() * 1.0f;
 
-	if (_position.y <= r)
+	float d = PFG::DistanceToPlane(n, p, q);
+	if (d <= r)
 	{
-		glm::vec3 contact = glm::vec3(0.0f, _mass * 9.8f, 0.0f);
-		addForce(contact);
-		_position.y = r;
+		float j_numerator = -(1+elasticity) * glm::dot(getVelocity(), n);
+		float total_inverse_mass = (1.0f / _mass);
+		float j = j_numerator / total_inverse_mass;
+		glm::vec3 impulseVector = j * n;
+		glm::vec3 velocity = getVelocity() + impulseVector * (1.0f/_mass);
+		setVelocity(velocity);
+
+		glm::vec3 contact_force = glm::vec3(0.0f,9.8f * _mass, 0.0f);
+		addForce(contact_force);
 	}
+
 
 }
 
@@ -171,6 +184,15 @@ void  DynamicObject::euler(float deltaTs)
 	_velocity += (_force * oneOverMass) * deltaTs;
 	// Compute the current position based on the previous position
 	_position += _velocity * deltaTs;
+
+	_angular_momentum += _torque * deltaTs;
+	computeInverseInertiaTensor();
+
+	_angular_velocity = _inertia_tensor_inverse * _angular_momentum;
+
+	glm::mat3 omega_star = glm::mat3(0.0f, -_angular_velocity.z, _angular_velocity.y, _angular_velocity.z, 0.0f, -_angular_velocity.x, -_angular_velocity.y, _angular_velocity.x, 0.0f);
+	
+	_R += omega_star * _R * deltaTs;
 }
 
 void DynamicObject::rk2(float deltaTs)
@@ -273,7 +295,7 @@ void DynamicObject::spheresCollisionResponse(DynamicObject* _other)
 		float total_inverse_mass = inverse_mass1 + inverse_mass2;
 		float total_mass = _mass + _mass2;
 
-		glm::vec3 mov = _position + penetration * n * inverse_mass2 / total_inverse_mass;
+		glm::vec3 mov = _position + penetration * n * inverse_mass1 / total_inverse_mass;
 		setPosition(mov.x, mov.y, mov.z);
 		mov = _other->getPosition() + penetration * n * inverse_mass2 / total_inverse_mass;
 		_other->setPosition(mov.x, mov.y, mov.z);
@@ -291,7 +313,7 @@ void DynamicObject::applyImpulseResponses(DynamicObject* objA, DynamicObject* ob
 	glm::vec3 velocity_B = objB->getVelocity();
 	glm::vec3 relative_velocity = velocity_A - velocity_B;
 
-	float elasticity = 0.6f * 0.5f; // should be non - hardcoded
+	float elasticity = objA->getElasticity() * objB->getElasticity(); // should be non - hardcoded
 	float one_over_massA = 1.0f / objA->getMass();
 	float one_over_massB = 1.0f / objB->getMass();
 	float J_numerator = -(1.0f + elasticity) * glm::dot(relative_velocity,n);
@@ -303,7 +325,85 @@ void DynamicObject::applyImpulseResponses(DynamicObject* objA, DynamicObject* ob
 	glm::vec3 velocity = objA->getVelocity() + collision_impulse_vector * one_over_massA;
 	objA->setVelocity(velocity);
 
-	glm::vec3 velocityb = objB->getVelocity() + collision_impulse_vector * one_over_massB;
-	objB->setVelocity(velocityb);
+	velocity = objB->getVelocity() - collision_impulse_vector * one_over_massB;
+	objB->setVelocity(velocity);
 
+}
+
+void DynamicObject::planeCollisionResponse(CollisionPlane _plane, float deltaTs)
+{
+	float elasticity = 0.5f;
+	glm::vec3 n = _plane.getNormal();
+	glm::vec3 c0 = _position;
+	glm::vec3 q = _plane.getPoint();
+	glm::vec3 c1 = _position + _velocity * deltaTs;
+	glm::vec3 ci(0);
+	float r = getBoundingRadius();
+	float inverse_mass1 = 1.0f / _mass;
+	float inverse_mass2 = 0.0f;
+	glm::vec3 velA = _velocity + glm::cross(_angular_velocity, r * n);
+	glm::vec3 velB = glm::vec3(0.0f,0.0f,0.0f);
+	glm::vec3 relative_velocity = velA - velB;
+
+	glm::vec3 cross1 = glm::cross(r * n, n);
+	cross1 = glm::cross(_inertia_tensor_inverse * cross1, r * n);
+	float total_inverse_mass = inverse_mass1 + inverse_mass2 + glm::dot(cross1,n);
+
+	bool collision = PFG::MovingSphereToPlaneCollision(n, c0, c1, q, r, ci);
+
+	if (collision)
+	{
+		glm::vec3 floor_velocity = glm::vec3(0.0f,0.0f,0.0f);
+		float collision_impulse = -(1 + elasticity) * glm::dot(relative_velocity, n) / total_inverse_mass;
+		glm::vec3 collision_impulse_vector = collision_impulse * n;
+		_velocity += collision_impulse_vector / _mass;
+		_angular_velocity += _inertia_tensor_inverse * glm::cross(r * n, collision_impulse_vector);
+		glm::vec3 gravity_force = glm::vec3(0.0f, 9.8f * _mass, 0.0f);
+		glm::vec3 normal_force = glm::dot(gravity_force,n) * n;
+		addForce(normal_force);
+
+		float d_mu = 0.66f;
+		glm::vec3 forward_relative_velocity = relative_velocity - glm::dot(relative_velocity, n) * n;
+
+		glm::vec3 friction_force = frictionForce(relative_velocity, n, normal_force, d_mu);
+		glm::vec3 torque_arm = r * n;
+		glm::vec3 torque = computeTorque(torque_arm, friction_force);
+
+		torque -= _angular_momentum * global_damping;
+		addForce(friction_force);
+
+		if (glm::length(forward_relative_velocity) - glm::length(friction_force / _mass) * deltaTs > 0.0f)
+		{
+			addForce(-friction_force);
+			addTorque(torque);
+		}
+	}
+}
+
+glm::vec3 DynamicObject::getEulerAngles(glm::mat3 R)
+{
+	glm::vec3 angles;
+	
+	float value = R[0][0] * R[0][0] + R[1][0] * R[1][0];
+	float sy = sqrt(value);
+
+	bool singular = sy < 1e-6;
+
+	float x,y,z;
+	if (!singular)
+	{
+		x = atan2(R[2][1], R[2][2]);
+		y = atan2(-R[2][0], sy);
+		z = atan2(R[1][0], R[0][0]);
+	}
+	else
+	{
+		std::cout << "&&&&&&&&&&" << std::endl;
+		x = atan2(-R[1][2], R[1][1]);
+		y = atan2(-R[2][0], sy);
+		z = 0;
+	}
+
+	angles = glm::vec3(x,y,z);
+	return angles;
 }

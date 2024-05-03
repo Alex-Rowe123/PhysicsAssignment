@@ -2,6 +2,7 @@
 #include <glm/glm.hpp>
 #include <fstream>
 #include <cmath>
+#include <iostream>
 #include "KinematicsObject.h"
 #include "DynamicObject.h"
 #include "CollisionPlane.h"
@@ -9,12 +10,26 @@
 // g++ -o main main.cpp KinematicsObject.cpp DynamicObject.cpp CollisionPlane.cpp Utility.cpp -lGLEW -lSDL2 -lGL -g
 
 int stotype(std::string str);
+glm::vec3 normalToDegrees(glm::vec3 normal) {
+    // Calculate the angles in radians
+    float xAngleRad = std::atan2(normal.y, normal.z);
+    float yAngleRad = std::atan2(normal.x * cos(xAngleRad), normal.z);
+    float zAngleRad = std::atan2(cos(xAngleRad), sin(xAngleRad) * sin(yAngleRad));
+
+    // Convert radians to degrees
+    float xAngleDeg = xAngleRad * (180/3.14159);
+    float yAngleDeg = yAngleRad * (180/3.14159);
+    float zAngleDeg = zAngleRad * (180/3.14159);
+    return glm::vec3(xAngleDeg, yAngleDeg, zAngleDeg);
+}
 
 int main()
 {
 	std::vector<DynamicObject*> Dynamic_objs;
 	std::vector<KinematicsObject*> Kinematic_objs;
 	std::vector<CollisionPlane*> Plane_objs;
+	PlaneContainer planes;
+
 
 	float dt = 1.0f / 120.0f;
 	/*DynamicObject a;
@@ -86,9 +101,9 @@ int main()
 		config.push_back(arguments);
 	}
 
-	// DynamicObject, Shape, Color, position, velocity, Acceleration, Scale, Radius, Mass, Elasticity
-	// KinematicsObject, Shape, Color, Position, Scale
-	// CollisionPlane, Position, Normal
+		//DynamicObject, Shape, ColorR, ColorG, ColorB, PositionX, PositionY, PositionZ, VelocityX, VelocityY, VelocityZ, AccelerationX, AccelerationY, AccelerationZ, ScaleX, ScaleY, ScaleZ, Radius, Mass, Elasticity,
+		//KinematicsObject, Shape, ColorR, ColorG, ColorB, PositionX, PositionY, PositionZ, ScaleX, ScaleY, ScaleZ,
+		//CollisionPlane, PositionX, PositionY, PositionZ, NormalX, NormalY, NormalZ,
 	for (std::vector<std::string> args : config)
 	{
 		if (args[0] == "DynamicObject")
@@ -103,6 +118,7 @@ int main()
 			Dynamic_objs.back()->setBoundingRadius(stof(args[17]));
 			Dynamic_objs.back()->setMass(stof(args[18]));
 			Dynamic_objs.back()->setElasticity(stof(args[19]));
+			Dynamic_objs.back()->_planecontainer = &planes;
 		}
 		else if ( args[0] == "KinematicsObject")
 		{
@@ -117,6 +133,13 @@ int main()
 			Plane_objs.push_back(new CollisionPlane);
 			Plane_objs.back()->setPosition(stof(args[1]),stof(args[2]),stof(args[3]));
 			Plane_objs.back()->setNormal(glm::vec3(stof(args[4]),stof(args[5]),stof(args[6])));
+			Plane_objs.back()->setType(PHY_CUBE);
+			Plane_objs.back()->setPoint(glm::vec3(stof(args[1]),stof(args[2]),stof(args[3])));	
+			glm::vec3 rot = normalToDegrees(glm::normalize(Plane_objs.back()->getNormal()));
+			std::cout << rot.x << ',' << rot.y << ',' << rot.z;
+			Plane_objs.back()->setRotation(rot.x,rot.y,rot.z);
+			Plane_objs.back()->setScale(50,0.1,50);
+			planes._plane_vector.push_back(*Plane_objs.back());
 		}
 	}
 

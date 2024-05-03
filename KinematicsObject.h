@@ -2,7 +2,7 @@
 #define _KinematicsObject_H_
 
 #include "phy.h"
-#include "glm/glm.hpp"
+#include <glm/glm.hpp>
 
 class KinematicsObject : public Object
 {

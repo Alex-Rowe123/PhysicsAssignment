@@ -1,6 +1,5 @@
 #include "DynamicObject.h"
 #include "Utility.h"
-//#include "CollisionPlane.h"
 
 /*! \brief Brief description.
 *  Physics dynamic object class is derived from the GameObject class, as a one type/class of game objects
@@ -131,8 +130,9 @@ void DynamicObject::update(float deltaTs)
 	// note: this collision detection is a temp fix for now
 	// We will show how to detect collisions in the following lectures
 
-	computeCollisionRes(deltaTs);
+	//computeCollisionRes(deltaTs);
 	for (DynamicObject* obj : object_list) if (obj != this) spheresCollisionResponse(obj);
+	for (CollisionPlane plane : _planecontainer->_plane_vector) planeCollisionResponse(plane,deltaTs);
 
 	// Step 4:  Integration
 	euler(deltaTs); 
@@ -398,7 +398,6 @@ glm::vec3 DynamicObject::getEulerAngles(glm::mat3 R)
 	}
 	else
 	{
-		std::cout << "&&&&&&&&&&" << std::endl;
 		x = atan2(-R[1][2], R[1][1]);
 		y = atan2(-R[2][0], sy);
 		z = 0;

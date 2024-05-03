@@ -3,7 +3,7 @@
 #define _DynamicObject_H_
 
 #include "phy.h"
-#include "glm/glm.hpp"
+#include <glm/glm.hpp>
 #include "CollisionPlane.h"
 #include <vector>
 #include <algorithm>
@@ -76,6 +76,7 @@ public:
 	glm::vec3 frictionForce(glm::vec3 relative_velocity, glm::vec3 contact_normal, glm::vec3 force_normal, float mu);
 
 	static std::vector<DynamicObject*> object_list;
+	PlaneContainer* _planecontainer;
 
 private:
 

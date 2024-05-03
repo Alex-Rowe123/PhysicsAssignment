@@ -32,6 +32,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #define SERVER_HOST "localhost"
 #define SERVER_PORT 1987
@@ -54,7 +55,6 @@
 
 namespace phy
 {
-
 template <typename T>
 struct Object
 {
@@ -87,6 +87,7 @@ struct Object
   {
     impl->setType(type);
   }
+
 
 private:
   struct Connection

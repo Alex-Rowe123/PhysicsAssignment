@@ -2,7 +2,8 @@
 #ifndef _CollisionPlane_H_
 #define _CollisionPlane_H_
 #include "phy.h"
-#include "glm/glm.hpp"
+#include <glm/glm.hpp>
+#include <vector>
 
 class CollisionPlane : public Object
 {
@@ -16,6 +17,11 @@ public:
 private:
     glm::vec3 _plane_normal;
     glm::vec3 _plane_point;
+};
+
+struct PlaneContainer
+{
+    std::vector<CollisionPlane> _plane_vector;
 };
 
 #endif
